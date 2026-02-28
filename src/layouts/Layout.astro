@@ -6,52 +6,87 @@ import "../styles/global.css";
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Astro Fitness</title>
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
-    />
-    <link rel="manifest" href="/manifest.json" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta
-      name="apple-mobile-web-app-status-bar-style"
-      content="black-translucent"
-    />
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0"
     />
+    <title>Productify</title>
+
     <link rel="icon" type="image/png" href="/icon-192.png" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="manifest" href="/manifest.json" />
+
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <meta name="theme-color" content="#030712" />
+
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+    />
+    <link rel="apple-touch-startup-image" href="/icon-512.png" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+
+    <script is:inline>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker
+            .register("/sw.js")
+            .catch((err) => console.log("SW failed", err));
+        });
+      }
+    </script>
   </head>
-  <body class="bg-gray-950 text-white min-h-screen">
+  <body
+    class="bg-gray-950 text-white min-h-screen selection:bg-accent selection:text-black"
+  >
     <slot />
 
     <script>
       import { accentColor, colorMap } from "../lib/themeStore";
+      import { todoStore } from "../lib/todoStore"; // FIXED: Missing import
 
+      // --- 1. THEME LOGIC ---
       accentColor.subscribe((color) => {
         const hex = colorMap[color as keyof typeof colorMap];
         if (hex) {
           document.documentElement.style.setProperty("--accent", hex);
+          // Update theme color meta tag to match
+          document
+            .querySelector('meta[name="theme-color"]')
+            ?.setAttribute("content", "#030712");
         }
       });
+
+      // --- 2. DAILY SCRUB (Tomorrow -> Today) ---
       function dailyScrub() {
         const todos = todoStore.get();
+        if (!todos || todos.length === 0) return;
+
         const today = new Date().toISOString().split("T")[0];
+        let hasChanged = false;
 
         const updated = todos.map((t) => {
-          // If it was 'tomorrow' and that day has arrived
           if (t.type === "tomorrow") {
+            hasChanged = true;
             return { ...t, type: "today", dateAssigned: today };
           }
           return t;
         });
 
-        todoStore.set(updated);
+        if (hasChanged) {
+          todoStore.set(updated);
+        }
       }
 
-      // Run once on load
+      // Run on page load
       dailyScrub();
     </script>
   </body>
