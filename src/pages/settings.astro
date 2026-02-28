@@ -1,0 +1,180 @@
+---
+import Sidebar from "@components/ui/Sidebar.astro";
+import Layout from "src/layouts/Layout.astro";
+import "../styles/global.css";
+---
+
+<Layout>
+  <body class="bg-gray-950 text-white flex">
+    <Sidebar />
+    <main class="ml-20 p-10 w-full max-w-3xl">
+      <h1 class="text-3xl font-black mb-8">Settings</h1>
+
+      <div
+        class="bg-gray-900 p-6 rounded-2xl border border-gray-800 mb-8 shadow-xl"
+      >
+        <h2 class="text-gray-400 uppercase text-xs tracking-widest mb-4">
+          App Theme
+        </h2>
+        <div class="flex gap-6" id="color-picker">
+          <button
+            class="color-btn w-12 h-12 rounded-full bg-green-500 transition-all hover:scale-110 active:scale-95 ring-offset-4 ring-offset-gray-900"
+            data-color="green"></button>
+          <button
+            class="color-btn w-12 h-12 rounded-full bg-blue-500 transition-all hover:scale-110 active:scale-95 ring-offset-4 ring-offset-gray-900"
+            data-color="blue"></button>
+          <button
+            class="color-btn w-12 h-12 rounded-full bg-purple-500 transition-all hover:scale-110 active:scale-95 ring-offset-4 ring-offset-gray-900"
+            data-color="purple"></button>
+          <button
+            class="color-btn w-12 h-12 rounded-full bg-orange-500 transition-all hover:scale-110 active:scale-95 ring-offset-4 ring-offset-gray-900"
+            data-color="orange"></button>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <button
+          id="export-btn"
+          class="flex items-center justify-center gap-3 bg-gray-900 border border-gray-800 hover:border-accent hover:text-accent p-6 rounded-3xl transition-all group active:scale-95"
+        >
+          <span
+            class="material-symbols-rounded text-3xl group-hover:scale-110 transition-transform"
+            >download</span
+          >
+          <div class="text-left">
+            <p class="font-bold text-lg">Backup Data</p>
+            <p class="text-xs text-gray-500 uppercase tracking-widest">
+              Download .JSON
+            </p>
+          </div>
+        </button>
+
+        <label
+          for="import-input"
+          class="flex items-center justify-center gap-3 bg-gray-900 border border-gray-800 hover:border-blue-500 hover:text-blue-500 p-6 rounded-3xl transition-all group cursor-pointer active:scale-95"
+        >
+          <span
+            class="material-symbols-rounded text-3xl group-hover:scale-110 transition-transform"
+            >upload</span
+          >
+          <div class="text-left">
+            <p class="font-bold text-lg">Restore Backup</p>
+            <p class="text-xs text-gray-500 uppercase tracking-widest">
+              Select .JSON file
+            </p>
+          </div>
+          <input type="file" id="import-input" class="hidden" accept=".json" />
+        </label>
+      </div>
+      <div
+        class="bg-gray-900/30 p-6 rounded-2xl border border-red-900/30 mt-20"
+      >
+        <h2
+          class="text-red-500 uppercase text-xs tracking-widest mb-4 font-bold"
+        >
+          Danger Zone
+        </h2>
+        <p class="text-gray-500 text-sm mb-6">
+          This will permanently delete all your exercise data, focus logs, and
+          theme settings. This action cannot be undone.
+        </p>
+
+        <button
+          id="reset-btn"
+          class="bg-red-950/50 hover:bg-red-600 text-red-500 hover:text-white border border-red-900/50 px-6 py-3 rounded-xl font-bold transition-all active:scale-95"
+        >
+          Reset All App Data
+        </button>
+      </div>
+    </main>
+
+    <style is:global>
+      .color-btn[data-active="true"] {
+        --tw-ring-offset-width: 4px;
+        --tw-ring-offset-color: #111827;
+        --tw-ring-color: #ffffff;
+        box-shadow:
+          0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color),
+          0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color);
+        transform: scale(1.1);
+      }
+    </style>
+
+    <script>
+      import { todoStore } from "../lib/todoStore";
+      import { logStore } from "../lib/logStore";
+      import { exerciseList } from "../lib/exerciseStore";
+
+      // --- 1. EXPORT LOGIC ---
+      const exportBtn = document.getElementById("export-btn");
+      exportBtn.onclick = () => {
+        // Collect all data into one object
+        const backupData = {
+          todos: todoStore.get(),
+          logs: logStore.get(),
+          exercises: exerciseList.get(),
+          exportDate: new Date().toISOString(),
+        };
+
+        // Create a virtual file (Blob)
+        const blob = new Blob([JSON.stringify(backupData, null, 2)], {
+          type: "application/json",
+        });
+        const url = URL.createObjectURL(blob);
+
+        // Trigger the download
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `focus-backup-${new Date().toISOString().split("T")[0]}.json`;
+        a.click();
+
+        // Clean up memory
+        URL.revokeObjectURL(url);
+      };
+
+      // --- 2. IMPORT LOGIC ---
+      const importInput = document.getElementById("import-input");
+      importInput.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const data = JSON.parse(event.target.result);
+
+            // Validation: Don't let users upload random cat photos
+            if (!data.todos || !data.exercises) {
+              throw new Error("Invalid backup format");
+            }
+
+            if (
+              confirm("This will overwrite your current progress. Continue?")
+            ) {
+              // Update all stores simultaneously
+              todoStore.set(data.todos);
+              logStore.set(data.logs || []);
+              exerciseList.set(data.exercises);
+
+              alert("Data restored successfully!");
+              window.location.reload(); // Refresh to show new data
+            }
+          } catch (err) {
+            alert("Error: " + err.message);
+          }
+        };
+        reader.readAsText(file);
+      };
+
+      // --- 3. RESET LOGIC (The Nuclear Option) ---
+      const resetBtn = document.getElementById("reset-btn");
+      resetBtn.onclick = () => {
+        if (
+          confirm("DANGER: This will delete EVERYTHING. Are you 100% sure?")
+        ) {
+          localStorage.clear();
+          window.location.href = "/";
+        }
+      };
+    </script>
+  </body>
+</Layout>

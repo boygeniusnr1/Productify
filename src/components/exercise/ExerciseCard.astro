@@ -1,0 +1,72 @@
+---
+import type { Exercise } from "@lib/types";
+
+interface Props {
+  exercise: Exercise;
+}
+
+const { exercise } = Astro.props;
+const progress = Math.min((exercise.current / exercise.goal) * 100, 100);
+---
+
+<div
+  class="bg-gray-900 border border-gray-700 p-6 rounded-2xl shadow-xl w-full max-w-sm hover:border-accent transition-colors group"
+  data-id={exercise.id}
+>
+  <div class="flex justify-between items-start mb-4">
+    <div>
+      <h3 class="text-xl font-bold text-white">{exercise.name}</h3>
+      <p class="text-gray-400 text-sm">
+        Daily Goal: {exercise.goal}
+        {exercise.unit}
+      </p>
+    </div>
+    <span class="text-2xl font-mono text-accent" id="count-display">
+      {exercise.current}
+    </span>
+  </div>
+
+  <div class="w-full bg-gray-800 rounded-full h-2.5 mb-6 overflow-hidden">
+    <div
+      class="bg-accent h-2.5 rounded-full transition-all duration-500 ease-out"
+      style={`width: ${progress}%`}
+      id="progress-bar"
+    >
+    </div>
+  </div>
+
+  <button
+    id="increment-btn"
+    class="w-full py-3 bg-accent hover:bg-accent/80 text-white font-bold rounded-xl active:scale-95 transition-transform"
+  >
+    +1 {exercise.unit}
+  </button>
+</div>
+
+<script>
+  import { exerciseStore, incrementExercise } from "@lib/exerciseStore";
+
+  const cards = document.querySelectorAll("[data-id]");
+
+  cards.forEach((card) => {
+    const id = card.getAttribute("data-id")!;
+    const display = card.querySelector("#count-display");
+    const bar = card.querySelector("#progress-bar") as HTMLElement;
+    const btn = card.querySelector("#increment-btn");
+
+    // Subscribe to the store for BOTH count and goal changes
+    exerciseStore.subscribe((data) => {
+      const current = parseInt(data[`count-${id}`] || "0");
+      const goal = parseInt(data[`goal-${id}`] || "50");
+
+      if (display) display.textContent = current.toString();
+
+      const progress = Math.min((current / goal) * 100, 100);
+      if (bar) bar.style.width = `${progress}%`;
+    });
+
+    btn?.addEventListener("click", () => {
+      incrementExercise(id);
+    });
+  });
+</script>

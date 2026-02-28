@@ -1,0 +1,176 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Sidebar from "../components/ui/Sidebar.astro";
+---
+
+<Layout>
+  <div class="flex">
+    <Sidebar />
+    <main class="ml-20 p-10 w-full max-w-6xl">
+      <header class="flex justify-between items-end mb-10">
+        <div>
+          <h1 class="text-4xl font-black">Task Manager</h1>
+          <p class="text-gray-500 text-sm">Organize your workflow.</p>
+        </div>
+        <button
+          id="clear-completed-btn"
+          class="text-xs bg-red-900/20 text-red-500 border border-red-900/50 hover:bg-red-500 hover:text-white px-4 py-2 rounded-xl font-bold uppercase tracking-widest transition-all"
+        >
+          Clear Completed
+        </button>
+      </header>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-10">
+        <section
+          class="bg-gray-900/50 p-6 rounded-3xl border border-gray-800 h-fit"
+        >
+          <h2 class="text-lg font-bold mb-4">Backlog</h2>
+          <div class="flex gap-2 mb-6">
+            <input
+              type="text"
+              id="backlog-input"
+              class="bg-gray-800 border-none rounded-xl w-full px-4 py-2 text-sm text-white focus:ring-1 focus:ring-accent outline-none"
+              placeholder="Add to backlog..."
+            />
+            <button
+              id="add-backlog-btn"
+              class="bg-gray-700 hover:bg-white hover:text-black px-4 rounded-xl font-bold transition-colors"
+              >+</button
+            >
+          </div>
+          <div id="long-term-container"></div>
+        </section>
+
+        <section class="space-y-6">
+          <div
+            id="overdue-section"
+            class="hidden bg-red-950/20 border border-red-900/30 p-6 rounded-3xl"
+          >
+            <h2
+              class="text-lg font-bold mb-4 text-red-500 flex items-center gap-2"
+            >
+              <span class="material-symbols-rounded">warning</span> Overdue
+            </h2>
+            <div id="overdue-container"></div>
+          </div>
+
+          <div
+            class="bg-gray-900 p-6 rounded-3xl border border-gray-800 shadow-xl"
+          >
+            <h2
+              class="text-lg font-bold mb-4 text-accent uppercase tracking-tighter"
+            >
+              Today
+            </h2>
+            <div id="today-container"></div>
+          </div>
+
+          <div class="bg-gray-950 p-6 rounded-3xl border border-gray-900">
+            <h2
+              class="text-lg font-bold mb-4 text-gray-500 uppercase tracking-tighter"
+            >
+              Tomorrow
+            </h2>
+            <div id="tomorrow-container"></div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+</Layout>
+
+<script>
+  import {
+    todoStore,
+    addTodo,
+    toggleTodo,
+    moveTodo,
+    deleteTodo,
+    clearCompleted,
+  } from "../lib/todoStore";
+  import { renderTodo } from "../lib/todoUI";
+
+  const setupTodoListeners = (container) => {
+    if (!container) return;
+    container
+      .querySelectorAll(".toggle-btn")
+      .forEach((b) => (b.onclick = () => toggleTodo(b.dataset.id)));
+    container
+      .querySelectorAll(".delete-btn")
+      .forEach((b) => (b.onclick = () => deleteTodo(b.dataset.id)));
+    container
+      .querySelectorAll(".move-today-btn")
+      .forEach((b) => (b.onclick = () => moveTodo(b.dataset.id, "today")));
+    container
+      .querySelectorAll(".move-tomorrow-btn")
+      .forEach((b) => (b.onclick = () => moveTodo(b.dataset.id, "tomorrow")));
+    container
+      .querySelectorAll(".move-backlog-btn")
+      .forEach((b) => (b.onclick = () => moveTodo(b.dataset.id, "long-term")));
+    container.querySelectorAll(".sub-btn").forEach(
+      (b) =>
+        (b.onclick = () => {
+          const text = prompt("Enter sub-task:");
+          if (text) {
+            const t = todoStore.get().find((x) => x.id === b.dataset.id);
+            addTodo(text, t.type, b.dataset.id);
+          }
+        }),
+    );
+  };
+
+  todoStore.subscribe((todos) => {
+    const today = new Date().toISOString().split("T")[0];
+
+    // 1. Overdue Logic
+    const overdueContainer = document.getElementById("overdue-container");
+    const overdueSection = document.getElementById("overdue-section");
+    const overdueTasks = todos.filter(
+      (t) => !t.completed && t.type === "today" && t.dateAssigned < today,
+    );
+
+    if (overdueTasks.length > 0) {
+      overdueSection?.classList.remove("hidden");
+      overdueContainer.innerHTML = overdueTasks
+        .map((t) => renderTodo(t, todos))
+        .join("");
+      setupTodoListeners(overdueContainer);
+    } else {
+      overdueSection?.classList.add("hidden");
+    }
+
+    // 2. Column Logic
+    ["today", "tomorrow", "long-term"].forEach((type) => {
+      const containerId =
+        type === "long-term" ? "long-term-container" : `${type}-container`;
+      const container = document.getElementById(containerId);
+      if (!container) return;
+
+      const filtered = todos.filter(
+        (t) =>
+          t.type === type &&
+          !t.parentId &&
+          (type !== "today" || t.dateAssigned >= today),
+      );
+
+      container.innerHTML = filtered.length
+        ? filtered.map((t) => renderTodo(t, todos)).join("")
+        : `<p class="text-gray-800 text-xs italic py-4">Nothing scheduled</p>`;
+
+      setupTodoListeners(container);
+    });
+  });
+
+  // Global Actions
+  document.getElementById("add-backlog-btn").onclick = () => {
+    const input = document.getElementById("backlog-input");
+    if (input.value.trim()) {
+      addTodo(input.value.trim(), "long-term");
+      input.value = "";
+    }
+  };
+
+  document.getElementById("clear-completed-btn").onclick = () => {
+    if (confirm("Clear all completed tasks?")) clearCompleted();
+  };
+</script>

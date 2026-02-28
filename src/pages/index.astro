@@ -1,11 +1,178 @@
 ---
-import Welcome from '../components/Welcome.astro';
-import Layout from '../layouts/Layout.astro';
-
-// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
-// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
+import Layout from "../layouts/Layout.astro";
+import Sidebar from "../components/ui/Sidebar.astro";
+import "../styles/global.css";
 ---
 
 <Layout>
-	<Welcome />
+  <div class="flex">
+    <Sidebar />
+    <main class="mb-24 md:mb-0 md:ml-20 p-6 md:p-10 w-full max-w-7xl">
+      <h1 class="text-3xl font-black mb-8 tracking-tighter">Daily Progress</h1>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div
+          class="lg:col-span-2 bg-gray-900 border border-gray-800 rounded-3xl p-8 shadow-2xl"
+        >
+          <div class="flex justify-between items-center mb-8">
+            <h2 class="text-xl font-bold">Exercises</h2>
+            <a
+              href="/exercises"
+              class="text-xs text-gray-500 hover:text-white uppercase tracking-widest transition-colors"
+              >Edit All →</a
+            >
+          </div>
+          <div id="exercise-list-container" class="space-y-8"></div>
+        </div>
+
+        <div class="space-y-8">
+          <div
+            class="bg-gray-900 border border-gray-800 rounded-3xl p-8 shadow-2xl"
+          >
+            <div class="flex justify-between items-center mb-6">
+              <h2 class="text-xl font-bold">Today's Focus</h2>
+              <a
+                href="/todo"
+                class="text-xs text-accent hover:underline uppercase tracking-widest"
+                >Manage All →</a
+              >
+            </div>
+            <div id="dashboard-todo-container" class="space-y-1"></div>
+          </div>
+
+          <div
+            class="bg-gray-900 border border-gray-800 rounded-3xl p-8 shadow-2xl"
+          >
+            <h2 class="text-xl font-bold mb-6">Recent Sessions</h2>
+            <div id="activity-log-container" class="space-y-4"></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
 </Layout>
+
+<script>
+  import { exerciseList, incrementExercise } from "../lib/exerciseStore";
+  import { logStore } from "../lib/logStore";
+  import {
+    todoStore,
+    toggleTodo,
+    moveTodo,
+    addTodo,
+    deleteTodo,
+  } from "../lib/todoStore";
+  import { renderTodo } from "../lib/todoUI";
+
+  const exContainer = document.getElementById("exercise-list-container");
+  const logContainer = document.getElementById("activity-log-container");
+  const todoContainer = document.getElementById("dashboard-todo-container");
+
+  // --- 1. EXERCISE LOGIC ---
+  exerciseList.subscribe((exercises) => {
+    if (!exContainer) return;
+    exContainer.innerHTML = exercises
+      .map((ex) => {
+        const progress = Math.min(
+          ((ex.current || 0) / (ex.goal || 1)) * 100,
+          100,
+        );
+        return `
+        <div class="group">
+          <div class="flex justify-between items-end mb-2">
+            <span class="font-bold text-lg text-gray-200">${ex.name}</span>
+            <div class="flex items-center gap-4">
+               <span class="font-mono text-sm text-gray-400">${ex.current} / ${ex.goal}</span>
+               <button data-id="${ex.id}" class="inc-btn bg-gray-800 hover:bg-accent size-8 rounded-lg flex items-center justify-center transition-all active:scale-90 text-white font-bold">+</button>
+            </div>
+          </div>
+          <div class="w-full bg-gray-800 h-2 rounded-full overflow-hidden">
+            <div class="h-full transition-all duration-500" style="width: ${progress}%; background-color: var(--accent);"></div>
+          </div>
+        </div>`;
+      })
+      .join("");
+
+    exContainer.querySelectorAll(".inc-btn").forEach((btn) => {
+      btn.onclick = (e) => incrementExercise(e.currentTarget.dataset.id);
+    });
+  });
+
+  // --- 2. LOG LOGIC ---
+  logStore.subscribe((logs) => {
+    if (!logContainer) return;
+    const recent = [...logs].reverse().slice(0, 4);
+    if (recent.length === 0) {
+      logContainer.innerHTML = `<p class="text-gray-600 text-sm italic">No recent sessions.</p>`;
+      return;
+    }
+    logContainer.innerHTML = recent
+      .map(
+        (log) => `
+      <div class="flex justify-between items-center border-l-2 border-accent pl-4 py-1">
+        <div>
+          <p class="font-bold text-sm text-gray-200">${log.activity || "Session"}</p>
+          <p class="text-[10px] text-gray-500 uppercase">${log.timestamp || "Recent"}</p>
+        </div>
+        <span class="font-mono text-accent font-bold text-xs">${log.duration}</span>
+      </div>
+    `,
+      )
+      .join("");
+  });
+
+  // --- 3. TODO LOGIC ---
+  const setupTodoListeners = (container) => {
+    if (!container) return;
+    container
+      .querySelectorAll(".toggle-btn")
+      .forEach((b) => (b.onclick = () => toggleTodo(b.dataset.id)));
+    container
+      .querySelectorAll(".delete-btn")
+      .forEach((b) => (b.onclick = () => deleteTodo(b.dataset.id)));
+    container
+      .querySelectorAll(".move-today-btn")
+      .forEach((b) => (b.onclick = () => moveTodo(b.dataset.id, "today")));
+    container
+      .querySelectorAll(".move-tomorrow-btn")
+      .forEach((b) => (b.onclick = () => moveTodo(b.dataset.id, "tomorrow")));
+    container
+      .querySelectorAll(".move-backlog-btn")
+      .forEach((b) => (b.onclick = () => moveTodo(b.dataset.id, "long-term")));
+    container.querySelectorAll(".sub-btn").forEach(
+      (b) =>
+        (b.onclick = () => {
+          const text = prompt("Enter sub-task:");
+          if (text) {
+            const t = todoStore.get().find((x) => x.id === b.dataset.id);
+            addTodo(text, t.type, b.dataset.id);
+          }
+        }),
+    );
+  };
+
+  todoStore.subscribe((todos) => {
+    if (!todoContainer) return;
+    const today = new Date().toISOString().split("T")[0];
+
+    // Show everything for 'today' that isn't a subtask, including Overdue
+    const activeTasks = todos.filter((t) => t.type === "today" && !t.parentId);
+
+    if (activeTasks.length === 0) {
+      todoContainer.innerHTML = `<p class="text-gray-600 text-sm italic py-4">No tasks for today.</p>`;
+      return;
+    }
+
+    // Sort: Overdue first, then normal
+    const sortedTasks = activeTasks.sort((a, b) => {
+      const aOverdue = !a.completed && a.dateAssigned < today;
+      const bOverdue = !b.completed && b.dateAssigned < today;
+      return bOverdue - aOverdue;
+    });
+
+    todoContainer.innerHTML = sortedTasks
+      .map((t) => renderTodo(t, todos))
+      .join("");
+    setupTodoListeners(todoContainer);
+  });
+</script>

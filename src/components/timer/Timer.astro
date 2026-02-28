@@ -1,0 +1,115 @@
+---
+// src/components/Timer.astro
+---
+
+<div
+  class="bg-gray-900 p-8 rounded-3xl border border-gray-700 w-full text-center shadow-2xl"
+>
+  <h2 class="text-gray-400 uppercase text-xs tracking-widest mb-4">
+    Focus Session
+  </h2>
+
+  <input
+    type="text"
+    id="activity-name"
+    placeholder="What are you doing?"
+    class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 mb-4 text-white focus:outline-none focus:border-accent transition-colors"
+  />
+
+  <div
+    id="timer-display"
+    class="text-5xl font-mono font-bold text-accent mb-8 select-none"
+  >
+    00:00:00
+  </div>
+
+  <div class="flex gap-4">
+    <button
+      id="start-btn"
+      class="flex-1 bg-accent hover:opacity-90 text-white font-bold py-3 rounded-xl
+     shadow-[0_4px_0_0_rgba(0,0,0,0.3)] active:shadow-none active:translate-y-1
+     transition-all duration-75 select-none"
+    >
+      START
+    </button>
+
+    <button
+      id="stop-btn"
+      class="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded-xl
+         shadow-[0_4px_0_0_rgba(185,28,28,1)] active:shadow-none active:translate-y-1
+         transition-all duration-75 select-none"
+    >
+      STOP
+    </button>
+  </div>
+</div>
+
+<script>
+  import { startTimeStore, startTimer, stopTimer } from "@lib/timerStore";
+  import { addLog } from "@lib/logStore";
+
+  const display = document.getElementById("timer-display");
+  const nameInput = document.getElementById(
+    "activity-name",
+  ) as HTMLInputElement;
+  const startBtn = document.getElementById("start-btn");
+  const stopBtn = document.getElementById("stop-btn");
+
+  function updateUI() {
+    const startTime = startTimeStore.get();
+
+    // 1. Guard against 0 or the "1970/Unix Epoch" bug
+    if (!startTime || startTime <= 0 || startTime < 1000000000) {
+      if (display) {
+        display.textContent = "00:00:00";
+        display.classList.remove("animate-pulse");
+      }
+      return;
+    }
+
+    const elapsedMs = Date.now() - startTime;
+
+    // 2. Safety Check: If timer is running for > 1000 hours, it's a bug.
+    if (elapsedMs > 3600000 * 1000) {
+      stopTimer();
+      return;
+    }
+
+    // 3. Math to readable time
+    const s = Math.floor((elapsedMs / 1000) % 60);
+    const m = Math.floor((elapsedMs / (1000 * 60)) % 60);
+    const h = Math.floor(elapsedMs / (1000 * 60 * 60));
+
+    if (display) {
+      display.textContent = `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+      display.classList.add("animate-pulse");
+    }
+  }
+
+  // Handle Start
+  startBtn?.addEventListener("click", () => {
+    startTimer();
+    updateUI(); // Immediate feedback
+  });
+
+  // Handle Stop + Logging
+  stopBtn?.addEventListener("click", () => {
+    const currentTime = display?.textContent || "00:00:00";
+    const activityName = nameInput?.value.trim() || "Unnamed Session";
+
+    if (startTimeStore.get() > 0) {
+      // Check: Are you passing (string, string)?
+      addLog(activityName, currentTime);
+      if (nameInput) nameInput.value = "";
+    }
+
+    stopTimer();
+    updateUI();
+  });
+
+  // Refresh every second
+  setInterval(updateUI, 1000);
+
+  // Initial run on page load
+  updateUI();
+</script>
