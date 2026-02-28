@@ -10,6 +10,12 @@ const navItems = [
 ];
 ---
 
+<a
+  href="/timer"
+  class="md:hidden fixed bottom-24 right-6 bg-accent text-black size-14 rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(var(--accent-rgb),0.4)] z-[60] active:scale-90 transition-transform"
+>
+  <span class="material-symbols-rounded text-3xl font-bold">timer</span>
+</a>
 <aside
   class="fixed bottom-0 left-0 w-full h-20 md:top-0 md:h-screen md:w-20 bg-gray-950 border-t md:border-t-0 md:border-r border-gray-900 flex flex-row md:flex-col items-center justify-around md:justify-start py-2 md:py-8 z-50"
 >
@@ -38,7 +44,12 @@ const navItems = [
         );
       })
     }
-
+    <a
+      href="/timer"
+      class="hidden md:flex items-center justify-center p-3 text-gray-500 hover:text-white transition-all"
+    >
+      <span class="material-symbols-rounded text-2xl">timer</span>
+    </a>
     <a
       href="/settings"
       class="md:hidden flex items-center justify-center p-4 text-gray-500"
