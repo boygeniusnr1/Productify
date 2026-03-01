@@ -1,6 +1,7 @@
 ---
 import "../styles/global.css";
 import Analytics from "@vercel/analytics/astro";
+import SpeedInsights from "@vercel/speed-insights/astro";
 ---
 
 <!doctype html>
@@ -34,6 +35,8 @@ import Analytics from "@vercel/analytics/astro";
       name="apple-mobile-web-app-status-bar-style"
       content="black-translucent"
     />
+    <Analytics />
+    <SpeedInsights />
 
     <script is:inline>
       if ("serviceWorker" in navigator) {
