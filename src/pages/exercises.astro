@@ -58,55 +58,69 @@ import "../styles/global.css";
   </div>
 
   <script>
-    import { exerciseList, addExercise } from "../lib/exerciseStore";
+    // 1. Import the cloud-aware functions
+    import {
+      exerciseList,
+      addExercise,
+      deleteExercise,
+    } from "../lib/exerciseStore";
 
     const list = document.getElementById("manage-list");
-    const addBtn = document.getElementById("add-ex-btn");
-    const nameInput = document.getElementById("ex-name");
-    const goalInput = document.getElementById("ex-goal");
+    const addBtn = document.getElementById("add-ex-btn") as HTMLButtonElement;
+    const nameInput = document.getElementById("ex-name") as HTMLInputElement;
+    const goalInput = document.getElementById("ex-goal") as HTMLInputElement;
 
-    // 1. Render the List
+    // 2. Render the List and Handle Cloud Syncing
     exerciseList.subscribe((exercises) => {
       if (!list) return;
+
       list.innerHTML = exercises
         .map(
           (ex) => `
-        <div class="flex items-center justify-between bg-gray-900/50 p-5 rounded-3xl border border-gray-800 hover:border-gray-700 transition-colors">
-          <div>
-            <h3 class="font-bold text-lg text-white">${ex.name}</h3>
-            <p class="text-xs text-gray-500 uppercase tracking-widest">Target: ${ex.goal} reps</p>
-          </div>
-          <button data-id="${ex.id}" class="delete-btn p-3 text-gray-600 hover:text-red-500 transition-colors flex items-center justify-center">
-            <span class="material-symbols-rounded">delete</span>
-          </button>
+      <div class="flex items-center justify-between bg-gray-900/50 p-5 rounded-3xl border border-gray-800 hover:border-gray-700 transition-colors">
+        <div>
+          <h3 class="font-bold text-lg text-white">${ex.name}</h3>
+          <p class="text-xs text-gray-500 uppercase tracking-widest">Target: ${ex.goal} reps</p>
         </div>
-      `,
+        <button data-id="${ex.id}" class="delete-btn p-3 text-gray-600 hover:text-red-500 transition-colors flex items-center justify-center">
+          <span class="material-symbols-rounded">delete</span>
+        </button>
+      </div>
+    `,
         )
         .join("");
 
-      // Handle Deletion
+      // Handle Deletion (Cloud + Local)
       list.querySelectorAll(".delete-btn").forEach((btn) => {
-        btn.onclick = () => {
-          const id = btn.dataset.id;
-          if (confirm(`Delete ${exercises.find((e) => e.id === id)?.name}?`)) {
-            exerciseList.set(exerciseList.get().filter((e) => e.id !== id));
+        (btn as HTMLButtonElement).onclick = async () => {
+          const id = btn.getAttribute("data-id");
+          const exerciseName = exercises.find((e) => e.id === id)?.name;
+
+          if (
+            id &&
+            confirm(`Delete "${exerciseName}" and all its cloud data?`)
+          ) {
+            // This function handles the store filter AND the Supabase delete
+            await deleteExercise(id);
           }
         };
       });
     });
 
-    // 2. Handle Adding
-    addBtn.onclick = () => {
-      const name = nameInput.value.trim();
-      const goal = parseInt(goalInput.value);
+    // 3. Handle Adding
+    if (addBtn) {
+      addBtn.onclick = () => {
+        const name = nameInput.value.trim();
+        const goal = parseInt(goalInput.value);
 
-      if (name && goal > 0) {
-        addExercise(name, goal);
-        nameInput.value = "";
-        goalInput.value = "";
-      } else {
-        alert("Please enter a valid name and goal.");
-      }
-    };
+        if (name && goal > 0) {
+          addExercise(name, goal);
+          nameInput.value = "";
+          goalInput.value = "";
+        } else {
+          alert("Please enter a valid name and goal.");
+        }
+      };
+    }
   </script>
 </Layout>

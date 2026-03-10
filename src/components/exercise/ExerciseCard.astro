@@ -44,7 +44,7 @@ const progress = Math.min((exercise.current / exercise.goal) * 100, 100);
 </div>
 
 <script>
-  import { exerciseStore, incrementExercise } from "@lib/exerciseStore";
+  import { exerciseList, incrementExercise } from "../lib/exerciseStore";
 
   const cards = document.querySelectorAll("[data-id]");
 

@@ -2,6 +2,11 @@
 import "../styles/global.css";
 import Analytics from "@vercel/analytics/astro";
 import SpeedInsights from "@vercel/speed-insights/astro";
+// NEXT STEP
+// Add timer running feature when timer page is closed/defocused
+// Add approximate time spent as optional field for tasks
+// RE-ADD TOOLTIPS ON SIDEBAR ICONS
+// Add iCal integration
 ---
 
 <!doctype html>
@@ -54,26 +59,27 @@ import SpeedInsights from "@vercel/speed-insights/astro";
     <slot />
 
     <script>
+      import { supabase } from "../lib/supabase";
       import { accentColor, colorMap } from "../lib/themeStore";
-      import { todoStore } from "../lib/todoStore"; // FIXED: Missing import
+      import { todoStore, fetchTodos } from "../lib/todoStore";
+      import { fetchExercises } from "../lib/exerciseStore";
+      import { fetchLogs } from "../lib/logStore";
 
-      // --- 1. THEME LOGIC ---
+      // 1. Fetch Cloud Data immediately
+      fetchTodos();
+
+      // 2. Theme Logic
       accentColor.subscribe((color) => {
         const hex = colorMap[color as keyof typeof colorMap];
         if (hex) {
           document.documentElement.style.setProperty("--accent", hex);
-          // Update theme color meta tag to match
-          document
-            .querySelector('meta[name="theme-color"]')
-            ?.setAttribute("content", "#030712");
         }
       });
 
-      // --- 2. DAILY SCRUB (Tomorrow -> Today) ---
+      // 3. Daily Scrub
       function dailyScrub() {
         const todos = todoStore.get();
         if (!todos || todos.length === 0) return;
-
         const today = new Date().toISOString().split("T")[0];
         let hasChanged = false;
 
@@ -85,13 +91,21 @@ import SpeedInsights from "@vercel/speed-insights/astro";
           return t;
         });
 
-        if (hasChanged) {
-          todoStore.set(updated);
+        if (hasChanged) todoStore.set(updated);
+      }
+
+      dailyScrub();
+      async function initCloudSync() {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (session) {
+          await Promise.all([fetchTodos(), fetchExercises(), fetchLogs()]);
+          console.log("Cloud sync complete: All systems hydrated.");
         }
       }
 
-      // Run on page load
-      dailyScrub();
+      initCloudSync();
     </script>
   </body>
 </html>
