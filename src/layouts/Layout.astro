@@ -64,25 +64,6 @@ import SpeedInsights from "@vercel/speed-insights/astro";
       import { fetchExercises } from "../lib/exerciseStore";
       import { fetchLogs } from "../lib/logStore";
 
-      // This function runs in the browser
-      async function showMyId() {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        if (session?.user) {
-          console.log("CALENDAR URL ID:", session.user.id);
-          // Let's also make it easier:
-          console.log(
-            "FULL LINK:",
-            `https://productify.m-creates.com/api/calendar/${session.user.id}.ics`,
-          );
-        } else {
-          console.log("No user logged in yet.");
-        }
-      }
-
-      showMyId();
-
       // 1. Fetch Cloud Data immediately
       fetchTodos();
 
@@ -117,8 +98,20 @@ import SpeedInsights from "@vercel/speed-insights/astro";
         const {
           data: { session },
         } = await supabase.auth.getSession();
+
         if (session) {
           await Promise.all([fetchTodos(), fetchExercises(), fetchLogs()]);
+
+          // --- ADD THESE LINES HERE ---
+          console.log("------------------------------------------");
+          console.log("CALENDAR ID:", session.user.id);
+          console.log(
+            "LINK:",
+            `https://productify.m-creates.com/api/calendar/${session.user.id}.ics`,
+          );
+          console.log("------------------------------------------");
+          // ----------------------------
+
           console.log("Cloud sync complete: All systems hydrated.");
         }
       }
