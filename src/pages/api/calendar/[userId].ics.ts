@@ -1,44 +1,72 @@
-export const prerender = false;
-import { supabase } from "../../../lib/supabase";
+import type { APIRoute } from 'astro';
+import { createClient } from '@supabase/supabase-js';
 
-export async function GET({ params }) {
+export const prerender = false;
+
+export const GET: APIRoute = async ({ params }) => {
   const { userId } = params;
 
-  // 1. Fetch logs for this specific user
-  const { data: logs } = await supabase
+  const supabase = createClient(
+    import.meta.env.PUBLIC_SUPABASE_URL,
+    import.meta.env.SUPABASE_SERVICE_ROLE_KEY
+  );
+
+  // Fetching your columns: id, user_id, activity, duration, created_at
+  const { data: logs, error } = await supabase
     .from('logs')
-    .select('*')
-    .eq('user_id', userId);
+    .select('id, activity, duration, created_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
 
-  // 2. Build the iCalendar string
-  let icsContent = [
-    "BEGIN:VCALENDAR",
-    "VERSION:2.0",
-    "PRODID:-//YourApp//NONSGML v1.0//EN",
-    "CALSCALE:GREGORIAN",
-    "METHOD:PUBLISH"
-  ].join("\r\n") + "\r\n";
+  if (error) {
+    return new Response(`Error: ${error.message}`, { status: 500 });
+  }
 
-  logs?.forEach((log) => {
-    const dt = new Date(log.created_at).toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
-    icsContent += [
-      "BEGIN:VEVENT",
-      `UID:${log.id}@yourapp.com`,
-      `DTSTAMP:${dt}`,
-      `DTSTART:${dt}`,
-      `DURATION:PT${log.duration.replace(/\D/g, "")}M`, // Assumes duration is a string like "30 mins"
-      `SUMMARY:${log.activity}`,
-      "END:VEVENT"
-    ].join("\r\n") + "\r\n";
-  });
+  const formatDate = (date: Date) => {
+    return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  };
 
-  icsContent += "END:VCALENDAR";
+const events = logs?.map((log) => {
+  const startDate = new Date(log.created_at);
+  
+  // 1. Parse "01:30:00" into total minutes
+  const durationParts = (log.duration || "00:30:00").split(':');
+  const hours = parseInt(durationParts[0]) || 0;
+  const minutes = parseInt(durationParts[1]) || 0;
+  const seconds = parseInt(durationParts[2]) || 0;
+  
+  const totalDurationMinutes = (hours * 60) + minutes + (seconds / 60);
+  
+  // 2. Calculate the end date
+  const endDate = new Date(startDate.getTime() + totalDurationMinutes * 60000);
 
-  // 3. Return as a downloadable file
-  return new Response(icsContent, {
+  return `BEGIN:VEVENT
+UID:${log.id}@productify.m-creates.com
+DTSTAMP:${formatDate(new Date())}
+DTSTART:${formatDate(startDate)}
+DTEND:${formatDate(endDate)}
+SUMMARY:🚀 ${log.activity || 'Focus Session'}
+DESCRIPTION:Total duration: ${log.duration}
+END:VEVENT`;
+}).join('\n');
+
+  const icsString = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Productify//Max//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'X-WR-CALNAME:Productify Logs',
+    'X-WR-TIMEZONE:Pacific/Auckland',
+    events,
+    'END:VCALENDAR'
+  ].join('\n');
+
+  return new Response(icsString, {
     headers: {
-      "Content-Type": "text/calendar",
-      "Content-Disposition": `attachment; filename="activity-log.ics"`
-    }
+      'Content-Type': 'text/calendar; charset=utf-8',
+      'Content-Disposition': 'attachment; filename="activity-log.ics"',
+      'Cache-Control': 'no-store, no-cache, must-revalidate'
+    },
   });
-}
+};
