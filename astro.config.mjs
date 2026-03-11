@@ -3,11 +3,12 @@ import vercel from "@astrojs/vercel";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
-  // In Astro 5, 'static' is the default.
-  // We keep it this way and use 'export const prerender = false'
-  // in your [userId].ics.ts file to make that specific route dynamic.
-  output: "static",
-  adapter: vercel(),
+  // Switch output to 'server' to ensure the entry.mjs is generated correctly
+  output: "server",
+  adapter: vercel({
+    webAnalytics: { enabled: true },
+    speedInsights: { enabled: true },
+  }),
   vite: {
     plugins: [tailwindcss()],
   },
