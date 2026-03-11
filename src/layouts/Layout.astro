@@ -64,12 +64,24 @@ import SpeedInsights from "@vercel/speed-insights/astro";
       import { fetchExercises } from "../lib/exerciseStore";
       import { fetchLogs } from "../lib/logStore";
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) {
-        console.log("Your Calendar ID is:", user.id);
+      // This function runs in the browser
+      async function showMyId() {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (session?.user) {
+          console.log("CALENDAR URL ID:", session.user.id);
+          // Let's also make it easier:
+          console.log(
+            "FULL LINK:",
+            `https://productify.m-creates.com/api/calendar/${session.user.id}.ics`,
+          );
+        } else {
+          console.log("No user logged in yet.");
+        }
       }
+
+      showMyId();
 
       // 1. Fetch Cloud Data immediately
       fetchTodos();
