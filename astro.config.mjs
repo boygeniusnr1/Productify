@@ -3,8 +3,8 @@ import vercel from "@astrojs/vercel";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
-  // Switch output to 'server' to ensure the entry.mjs is generated correctly
-  output: "server",
+  // Astro 6 handles the 'server' vs 'static' logic automatically
+  // via the adapter. Just ensure the adapter is called.
   adapter: vercel({
     webAnalytics: { enabled: true },
     speedInsights: { enabled: true },
